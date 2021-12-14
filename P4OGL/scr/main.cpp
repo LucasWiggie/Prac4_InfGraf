@@ -66,6 +66,8 @@ int uNormalMat;
 int uColorTex;
 int uEmiTex;
 unsigned int uColorTexPP;
+unsigned int uVertexTexPP;
+unsigned int vertexBuffTexId;
 
 //Atributos
 int inPos;
@@ -231,6 +233,8 @@ void destroy()
 
 	glDeleteTextures(1, &colorTexId);
 	glDeleteTextures(1, &emiTexId);
+	glDeleteTextures(1, &vertexBuffTexId);
+
 }
 
 void initShaderFw(const char *vname, const char *fname)
@@ -318,6 +322,7 @@ void initShaderPP(const char* vname, const char* fname) {
 	// Cargamos en los ID's aquí en el main el ID que tienen esos uniforms en los shaders
 	uColorTexPP = glGetUniformLocation(postProccesProgram, "colorTex");
 	inPosPP = glGetAttribLocation(postProccesProgram, "inPos");
+	uVertexTexPP = glGetUniformLocation(postProccesProgram, "vertexTex");
 
 }
 
@@ -446,6 +451,7 @@ unsigned int loadTex(const char *fileName)
 
 void renderFunc()
 {
+	
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 	
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -504,11 +510,30 @@ void renderFunc()
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
+	//// MOTION BLUR
+	//glEnable(GL_BLEND); //Establecemos función de mezcla
+
+	////glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); //Usa el alfa: si el alfa es 1 lo pinto, si es 0 no lo pinto 
+	//glBlendFunc(GL_CONSTANT_COLOR, GL_CONSTANT_ALPHA);
+	//glBlendColor(0.5f, 0.5f, 0.5f, 0.6f); // Los tres primeros es el color por el que tienes q multiplicar en GL_CONSTANT_COLOR.
+	//// Multiplica los fotogramas por 0.5. El cuarto valor es para ver cuánto se satura, es decir, con cuantos frames anteriores se queda
+	//glBlendEquation(GL_FUNC_ADD); //Definimos la función de blending, la funcion de suma coge los valore sd e los pixeles y los suma tal cual
+	//// Nos tenemos que asegurar que tras la suma, no supere el 1
+
+	//// Para practicar y entender concepto mirar web:
+	//// andersriggelsen.dk/glblenfunc.php
+
 	if (uColorTexPP != -1)
 	{
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, colorBuffTexId);
 		glUniform1i(uColorTexPP, 0);
+	}
+	if (uVertexTexPP != -1)
+	{
+		glActiveTexture(GL_TEXTURE0 + 1);
+		glBindTexture(GL_TEXTURE_2D, vertexBuffTexId);
+		glUniform1i(uVertexTexPP, 1);
 	}
 
 	glBindVertexArray(planeVAO);
@@ -516,6 +541,8 @@ void renderFunc()
 
 	glEnable(GL_CULL_FACE);
 	glEnable(GL_DEPTH_TEST);
+
+	glDisable(GL_BLEND);
 
 	glutSwapBuffers();
 }
@@ -560,6 +587,7 @@ void initFBO() {
 	glGenFramebuffers(1, &fbo);
 	glGenTextures(1, &colorBuffTexId);
 	glGenTextures(1, &depthBuffTexId);
+	glGenTextures(1, &vertexBuffTexId);
 
 }
 
@@ -567,22 +595,31 @@ void resizeFBO(unsigned int w, unsigned int h) {
 
 	glBindTexture(GL_TEXTURE_2D, colorBuffTexId);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_FLOAT, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);*/
 
 	glBindTexture(GL_TEXTURE_2D, depthBuffTexId);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, w, h, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+	glBindTexture(GL_TEXTURE_2D, vertexBuffTexId);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
 	glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, vertexBuffTexId, 0);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffTexId, 0);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthBuffTexId, 0);
 
-	const GLenum buffs[1] = { GL_COLOR_ATTACHMENT0 };
-	glDrawBuffers(1, buffs);
+	const GLenum buffs[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+	glDrawBuffers(2, buffs);
 
 	if (GL_FRAMEBUFFER_COMPLETE != glCheckFramebufferStatus(GL_FRAMEBUFFER))
 	{

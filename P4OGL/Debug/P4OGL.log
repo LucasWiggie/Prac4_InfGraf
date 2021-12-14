@@ -1,3 +1,6 @@
 ﻿cl : línea de comandos warning D9035: La opción 'Gm' está desusada y se quitará en próximas versiones
+  auxiliar.cpp
+cl : línea de comandos warning D9035: La opción 'Gm' está desusada y se quitará en próximas versiones
   main.cpp
+auxiliar.obj : warning LNK4075: se omite '/EDITANDCONTINUE' debido a la especificación '/SAFESEH'
   P4OGL.vcxproj -> \\myappsdrive.alumnos.urjc.es\Home_VDI$\l.rubiol.2020\Documents\Inf Grafica\P4\P4OGL\P4OGL\Debug\P4OGL.exe

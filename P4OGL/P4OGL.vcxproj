@@ -25,8 +25,12 @@
   <ItemGroup>
     <None Include="..\shaders_P4\fwRendering.v0.frag" />
     <None Include="..\shaders_P4\fwRendering.v0.vert" />
+    <None Include="..\shaders_P4\fwRendering.v1.frag" />
+    <None Include="..\shaders_P4\fwRendering.v1.vert" />
     <None Include="..\shaders_P4\postProcessing.v0.frag" />
     <None Include="..\shaders_P4\postProcessing.v0.vert" />
+    <None Include="..\shaders_P4\postProcessing.v1.frag" />
+    <None Include="..\shaders_P4\postProcessing.v1.vert" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectName>P4OGL</ProjectName>
