@@ -31,6 +31,16 @@ glm::mat4	model = glm::mat4(1.0f);
 //////////////////////////////////////////////////////////////
 float angle = 0.0f; // para el idle
 
+//DOF	
+float focalDistance = -25;
+float maxDistanceFactor = 1.0/5.0;
+
+//MOTION BLUR
+float rMotionBlur = 0.5;
+float gMotionBlur = 0.5;
+float bMotionBlur = 0.5;
+float aMotionBlur = 0.6;
+
 //VAO
 unsigned int vao;
 unsigned int planeVAO;
@@ -42,7 +52,6 @@ unsigned int normalVBO;
 unsigned int texCoordVBO;
 unsigned int triangleIndexVBO;
 unsigned int planeVertexVBO;
-
 
 unsigned int colorTexId;
 unsigned int emiTexId;
@@ -56,11 +65,12 @@ unsigned int postProccesVShader;
 unsigned int postProccesFShader;
 unsigned int postProccesProgram;
 
-
 //Variables Uniform 
 int uModelViewMat;
 int uModelViewProjMat;
 int uNormalMat;
+int uFocalDistance;
+int uMaxDistanceFactor;
 
 //Texturas Uniform
 int uColorTex;
@@ -75,7 +85,6 @@ int inColor;
 int inNormal;
 int inTexCoord;
 int inPosPP;
-
 
 // FBOs
 unsigned int fbo;
@@ -135,10 +144,10 @@ int main(int argc, char** argv)
 
 	initContext(argc, argv);
 	initOGL();
-	initShaderFw("../shaders_P4/fwRendering.v0.vert", "../shaders_P4/fwRendering.v0.frag");
+	initShaderFw("../shaders_P4/fwRendering.v1.vert", "../shaders_P4/fwRendering.v1.frag");
 	initObj(); // No dibuja nada, así que la inicialización de shaders puede ir antes o después de esto
 
-	initShaderPP("../shaders_P4/postProcessing.v0.vert", "../shaders_P4/postProcessing.v0.frag");
+	initShaderPP("../shaders_P4/postProcessing.v1.vert", "../shaders_P4/postProcessing.v1.frag");
 	initPlane();
 
 	initFBO();
@@ -198,7 +207,6 @@ void initOGL()
 	view = glm::mat4(1.0f);
 	view[3].z = -25.0f;
 }
-
 
 void destroy()
 {
@@ -319,10 +327,12 @@ void initShaderPP(const char* vname, const char* fname) {
 
 	}
 
-	// Cargamos en los ID's aquí en el main el ID que tienen esos uniforms en los shaders
+	// Cargamos en las variables uniform los ID's que tienen las variables en el shader
 	uColorTexPP = glGetUniformLocation(postProccesProgram, "colorTex");
 	inPosPP = glGetAttribLocation(postProccesProgram, "inPos");
 	uVertexTexPP = glGetUniformLocation(postProccesProgram, "vertexTex");
+	uFocalDistance = glGetUniformLocation(postProccesProgram, "focalDistance");
+	uMaxDistanceFactor = glGetUniformLocation(postProccesProgram, "maxDistanceFactor");
 
 }
 
@@ -474,7 +484,6 @@ void renderFunc()
 		glUniform1i(uEmiTex, 1);
 	}
 
-
 	model = glm::mat4(2.0f);
 	model[3].w = 1.0f;
 	model = glm::rotate(model, angle, glm::vec3(1.0f, 1.0f, 0.0f));
@@ -510,18 +519,18 @@ void renderFunc()
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);
 
-	//// MOTION BLUR
-	//glEnable(GL_BLEND); //Establecemos función de mezcla
+	// MOTION BLUR
+	glEnable(GL_BLEND); //Establecemos función de mezcla
 
-	////glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); //Usa el alfa: si el alfa es 1 lo pinto, si es 0 no lo pinto 
-	//glBlendFunc(GL_CONSTANT_COLOR, GL_CONSTANT_ALPHA);
-	//glBlendColor(0.5f, 0.5f, 0.5f, 0.6f); // Los tres primeros es el color por el que tienes q multiplicar en GL_CONSTANT_COLOR.
-	//// Multiplica los fotogramas por 0.5. El cuarto valor es para ver cuánto se satura, es decir, con cuantos frames anteriores se queda
-	//glBlendEquation(GL_FUNC_ADD); //Definimos la función de blending, la funcion de suma coge los valore sd e los pixeles y los suma tal cual
-	//// Nos tenemos que asegurar que tras la suma, no supere el 1
+	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); //Usa el alfa: si el alfa es 1 lo pinto, si es 0 no lo pinto 
+	glBlendFunc(GL_CONSTANT_COLOR, GL_CONSTANT_ALPHA);
+	glBlendColor(rMotionBlur, gMotionBlur, bMotionBlur, aMotionBlur); // Los tres primeros es el color por el que tienes q multiplicar en GL_CONSTANT_COLOR.
+	// Multiplica los fotogramas por 0.5. El cuarto valor es para ver cuánto se satura, es decir, con cuantos frames anteriores se queda
+	glBlendEquation(GL_FUNC_ADD); //Definimos la función de blending, la funcion de suma coge los valores de los pixeles y los suma tal cual
+	// Nos tenemos que asegurar que tras la suma, no supere el 1
 
-	//// Para practicar y entender concepto mirar web:
-	//// andersriggelsen.dk/glblenfunc.php
+	// Para practicar y entender concepto mirar web:
+	// andersriggelsen.dk/glblenfunc.php
 
 	if (uColorTexPP != -1)
 	{
@@ -535,6 +544,11 @@ void renderFunc()
 		glBindTexture(GL_TEXTURE_2D, vertexBuffTexId);
 		glUniform1i(uVertexTexPP, 1);
 	}
+
+	if (uFocalDistance != -1)
+		glUniform1fv(uFocalDistance, 1, &focalDistance);
+	if (uMaxDistanceFactor != -1)
+		glUniform1fv(uMaxDistanceFactor, 1, &maxDistanceFactor);
 
 	glBindVertexArray(planeVAO);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -562,7 +576,7 @@ void renderCube()
 	if (uNormalMat != -1)
 		glUniformMatrix4fv(uNormalMat, 1, GL_FALSE,
 		&(normal[0][0]));
-	
+		
 	glBindVertexArray(vao);
 	glDrawElements(GL_TRIANGLES, cubeNTriangleIndex * 3,
 		GL_UNSIGNED_INT, (void*)0);
@@ -598,10 +612,12 @@ void resizeFBO(unsigned int w, unsigned int h) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	/*glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	/*
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);*/
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	*/
 
 	glBindTexture(GL_TEXTURE_2D, depthBuffTexId);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, w, h, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
@@ -642,11 +658,56 @@ void resizeFunc(int width, int height)
 
 void idleFunc()
 {
-	angle = (angle > 3.141592f * 2.0f) ? 0 : angle + 0.02f;
+	angle = (angle > 3.141592f * 2.0f) ? 0 : angle + 0.001f;
 	
 	glutPostRedisplay();
 }
 
-void keyboardFunc(unsigned char key, int x, int y){}
+void keyboardFunc(unsigned char key, int x, int y){
+
+	std::cout << "Se ha pulsado la tecla " << key << std::endl << std::endl;
+
+	switch (key) {
+	case 'w':
+		focalDistance = focalDistance + 2.0;
+		break;
+	case 's':
+		focalDistance = focalDistance - 2.0;
+		break;
+	case 'a':
+		maxDistanceFactor = maxDistanceFactor - 1.0 / 7.0;
+		break;
+	case 'd':
+		maxDistanceFactor = maxDistanceFactor + 1.0 / 7.0;
+		break;
+	case 'y':
+		rMotionBlur += 0.1;
+		break;
+	case 'u':
+		gMotionBlur += 0.1;
+		break;
+	case 'i':
+		bMotionBlur += 0.1;
+		break;
+	case 'o':
+		aMotionBlur += 0.1;
+		break;
+	case 'h':
+		rMotionBlur -= 0.1;
+		break;
+	case 'j':
+		gMotionBlur -= 0.1;
+		break;
+	case 'k':
+		bMotionBlur -= 0.1;
+		break;
+	case 'l':
+		aMotionBlur -= 0.1;
+		break;
+	}
+
+	glutPostRedisplay();
+}
+
 void mouseFunc(int button, int state, int x, int y){}
 
