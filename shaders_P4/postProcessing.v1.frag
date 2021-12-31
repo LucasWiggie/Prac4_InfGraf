@@ -6,9 +6,8 @@ out vec4 outColor;
 
 uniform sampler2D colorTex;
 uniform sampler2D vertexTex;
-
-const float focalDistance = -25.0;
-const float maxDistanceFactor = 1.0/5.0;
+uniform float focalDistance;
+uniform float maxDistanceFactor;
 
 /*
 // KERNEL PEQUE
@@ -52,7 +51,7 @@ void main()
 	//Sería más rápido utilizar una variable uniform el tamaño de la textura. 
 	vec2 ts = vec2(1.0) / vec2 (textureSize (colorTex,0));
 	
-	float dof = abs(texture(vertexTex,texCoord).z -focalDistance) * maxDistanceFactor;
+	float dof = abs(texture(vertexTex,texCoord).z - focalDistance) * maxDistanceFactor;
 	
 	dof = clamp (dof, 0.0, 1.0); // controla si emborronamos o no emborronamos
 	dof *= dof;
