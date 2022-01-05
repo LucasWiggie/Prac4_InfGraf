@@ -27,13 +27,22 @@ glm::mat4	model = glm::mat4(1.0f);
 
 
 //////////////////////////////////////////////////////////////
-// Variables que nos dan acceso a Objetos OpenGL
+//	Variables que nos dan acceso a Objetos OpenGL
 //////////////////////////////////////////////////////////////
 float angle = 0.0f; // para el idle
 
 //DOF	
 float focalDistance = -25;
 float maxDistanceFactor = 1.0/5.0;
+
+float maskFact = float(1.0 / 65.0);
+float *_mask = new float [25]{
+	1.0f * maskFact, 2.0f * maskFact, 3.0f * maskFact, 2.0f * maskFact, 1.0f * maskFact,
+	2.0f * maskFact, 3.0f * maskFact, 4.0f * maskFact, 3.0f * maskFact, 2.0f * maskFact,
+	3.0f * maskFact, 4.0f * maskFact, 5.0f * maskFact, 4.0f * maskFact, 3.0f * maskFact,
+	2.0f * maskFact, 3.0f * maskFact, 4.0f * maskFact, 3.0f * maskFact, 2.0f * maskFact,
+	1.0f * maskFact, 2.0f * maskFact, 3.0f * maskFact, 2.0f * maskFact, 1.0f * maskFact };
+
 
 //MOTION BLUR
 float rMotionBlur = 0.5;
@@ -71,6 +80,9 @@ int uModelViewProjMat;
 int uNormalMat;
 int uFocalDistance;
 int uMaxDistanceFactor;
+int uMaskFactor;
+int uMask;
+
 
 //Texturas Uniform
 int uColorTex;
@@ -90,6 +102,11 @@ int inPosPP;
 unsigned int fbo;
 unsigned int colorBuffTexId;
 unsigned int depthBuffTexId;
+unsigned int uDepthTexPP;
+int uNear;
+int uFar;
+float _near = 1.0;
+float _far = 50.0;
 
 
 //////////////////////////////////////////////////////////////
@@ -331,8 +348,16 @@ void initShaderPP(const char* vname, const char* fname) {
 	uColorTexPP = glGetUniformLocation(postProccesProgram, "colorTex");
 	inPosPP = glGetAttribLocation(postProccesProgram, "inPos");
 	uVertexTexPP = glGetUniformLocation(postProccesProgram, "vertexTex");
+
 	uFocalDistance = glGetUniformLocation(postProccesProgram, "focalDistance");
 	uMaxDistanceFactor = glGetUniformLocation(postProccesProgram, "maxDistanceFactor");
+
+	uMaskFactor = glGetUniformLocation(postProccesProgram, "maskFact");
+	uMask = glGetUniformLocation(postProccesProgram, "_mask");
+	
+	uNear = glGetUniformLocation(postProccesProgram, "near");
+	uFar = glGetUniformLocation(postProccesProgram, "far");
+	uDepthTexPP = glGetUniformLocation(postProccesProgram, "depthTex");
 
 }
 
@@ -544,11 +569,25 @@ void renderFunc()
 		glBindTexture(GL_TEXTURE_2D, vertexBuffTexId);
 		glUniform1i(uVertexTexPP, 1);
 	}
+	if (uDepthTexPP != -1) 
+	{
+		glActiveTexture(GL_TEXTURE0 + 2);
+		glBindTexture(GL_TEXTURE_2D, depthBuffTexId);
+		glUniform1i(uDepthTexPP, 2);
+	}
 
 	if (uFocalDistance != -1)
 		glUniform1fv(uFocalDistance, 1, &focalDistance);
 	if (uMaxDistanceFactor != -1)
 		glUniform1fv(uMaxDistanceFactor, 1, &maxDistanceFactor);
+	if (uMaskFactor != -1)
+		glUniform1fv(uMaxDistanceFactor, 1, &maskFact);
+	if (uMask != -1)
+		glUniform1fv(uMask, 25, _mask);
+	if (uNear != -1)
+		glUniform1fv(uNear, 1, &_near);
+	if (uFar != -1)
+		glUniform1fv(uFar, 1, &_far);
 
 	glBindVertexArray(planeVAO);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
@@ -649,7 +688,7 @@ void resizeFBO(unsigned int w, unsigned int h) {
 void resizeFunc(int width, int height)
 {
 	glViewport(0, 0, width, height);
-	proj = glm::perspective(glm::radians(60.0f), float(width) /float(height), 1.0f, 50.0f);
+	proj = glm::perspective(glm::radians(60.0f), float(width) /float(height), _near, _far);
 
 	resizeFBO(width, height);
 
@@ -703,6 +742,33 @@ void keyboardFunc(unsigned char key, int x, int y){
 		break;
 	case 'l':
 		aMotionBlur -= 0.1;
+		break;
+	case 'b':
+		maskFact = float(1.0/1.0);
+		_mask = new float[25]{
+			0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact,
+			0.0f * maskFact, 0.0f * maskFact, 1.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact,
+			0.0f * maskFact, 1.0f * maskFact, -4.0f * maskFact, 1.0f * maskFact, 0.0f * maskFact,
+			0.0f * maskFact, 0.0f * maskFact, 1.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact,
+			0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact };
+		break;
+	case 'n':
+		maskFact = float(1.0/1.0);
+		_mask = new float[25]{
+			0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact,
+			0.0f * maskFact, 0.0f * maskFact, -1.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact,
+			0.0f * maskFact, -1.0f * maskFact, 5.0f * maskFact, -1.0f * maskFact, 0.0f * maskFact,
+			0.0f * maskFact, 0.0f * maskFact, -1.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact,
+			0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact, 0.0f * maskFact };
+		break;
+	case 'm':
+		maskFact = float(1.0 / 65.0);
+		_mask = new float[25]{
+			1.0f * maskFact, 2.0f * maskFact, 3.0f * maskFact, 2.0f * maskFact, 1.0f * maskFact,
+			2.0f * maskFact, 3.0f * maskFact, 4.0f * maskFact, 3.0f * maskFact, 2.0f * maskFact,
+			3.0f * maskFact, 4.0f * maskFact, 5.0f * maskFact, 4.0f * maskFact, 3.0f * maskFact,
+			2.0f * maskFact, 3.0f * maskFact, 4.0f * maskFact, 3.0f * maskFact, 2.0f * maskFact,
+			1.0f * maskFact, 2.0f * maskFact, 3.0f * maskFact, 2.0f * maskFact, 1.0f * maskFact };
 		break;
 	}
 
