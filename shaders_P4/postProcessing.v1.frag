@@ -8,6 +8,7 @@ out vec4 outColor;
 
 uniform sampler2D colorTex;
 uniform sampler2D vertexTex;
+uniform sampler2D depthTex;
 
 uniform float focalDistance;
 uniform float maxDistanceFactor;
@@ -24,7 +25,7 @@ uniform float far;
 
 const float maskFactor = float (1.0/14.0); //divides entre 14.0 porq es el numero total de pesos
 // Este vector delimita cuanto nos tenemos que mover para ir a los píxeles vecinos
-// el 0,0 es el delo centro, para ir al de la esquina superior hacemos -1 en x y 1 en y
+// el 0,0 es el del centro, para ir al de la esquina superior hacemos -1 en x y 1 en y
 const vec2 texIdx[MASK_SIZE] = vec2[]( 
 	vec2(-1.0,1.0), vec2(0.0,1.0), vec2(1.0,1.0),
 	vec2(-1.0,0.0), vec2(0.0,0.0), vec2(1.0,0.0),
@@ -51,11 +52,10 @@ void main()
 	//Sería más rápido utilizar una variable uniform el tamaño de la textura. 
 	vec2 ts = vec2(1.0) / vec2 (textureSize (colorTex,0));
 	
-	float dof = abs((-near*far/(far+(near-far)*texture(vertexTex,texCoord).z)) - focalDistance) * maxDistanceFactor;
+	float dof = abs((-near*far/(far+(near-far)*texture(depthTex,texCoord).z)) - focalDistance) * maxDistanceFactor;
 	
 	dof = clamp (dof, 0.0, 1.0); // controla si emborronamos o no emborronamos
 	dof *= dof;
-
 
 	vec4 color = vec4 (0.0);
 	for (uint i = 0u; i < MASK_SIZE; i++)
